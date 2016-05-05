@@ -1,0 +1,122 @@
+---
+title: Syslog Forwarding Add-on
+owner: BOSH
+---
+
+The Syslog Forwarding Add-on configures all virtual machines (VMs) in your Pivotal Cloud Foundry&reg; (PCF) deployment to forward their system logs to a third party log management service. 
+
+This topic describes how to set up the Syslog Forwarding Add-on by creating a manifest and installing the software binary.
+
+## <a id="prereqs"></a> Prerequisites
+
+Verify that you have satisfied the following prerequisites before you begin:
+
+* PCF operator administration rights
+* BOSH deployed through Ops Manager 1.7 or higher
+
+## <a id="manifest"></a> Create the Manifest
+
+Follow these steps to create the Syslog Forwarding manifest for your deployment:
+
+1. Create a manifest file `syslog-forwarding-addon.yml` starting with the code below as a template.
+
+    ```
+    releases:
+    - name: syslog
+      version: 3
+
+    addons:
+    - name: logs
+      jobs:
+      - name: syslog_forwarder
+        release: syslog
+      Properties:
+        syslog:
+          address: logs4.papertrail.com
+          transport: tcp
+          port: 38559
+          tls_enabled: true
+          permitted_peer: "*.papertrail.com"
+          ca_cert: |
+            -----BEGIN CERTIFICATE-----
+            MIIClTCCAf4CCQDc6hJtvGB8RjANBgkqhkiG9w0BAQUFADCBjjELMAk...
+            -----END CERTIFICATE-----
+    ```
+
+1. Replace the properties listed in the file as follows:
+  * `releases: - version`: Specify the version number of your Syslog download from Pivotal Network.
+  * `jobs: -name`: Do not change the name of this job. It must be `syslog_forwarder`.
+  * `address`: Specify the IP or DNS address of the syslog server.
+  * `transport`: Specify the transport protocol, udp, tcp, or relp.
+  * `port`: Specify the port of the syslog server.
+  * `tls_enabled`: Set this to true to enable TLS/SSL, or false otherwise.
+  * `permitted_peer`: Enter the name or accepted SHA1 fingerprint of the syslog server. Required if TLS/SSL is enabled.
+  * `ca_cert`: Paste in the CA certificates for the syslog server to trust. Required if TLS/SSL is enabled.
+
+## <a id="deploy"></a> Download and Deploy the Binary
+
+1. Download the Syslog Forwarding add-on software binary from the Pivotal Network to your local machine.
+
+1. Copy the software binary to your Ops Manager instance.
+<pre class="terminal">
+$ scp -i PATH/TO/PRIVATE/KEY syslog-forwarding-release.tar.gz ubuntu@YOUR-OPS-MANAGER-VM-IP:
+</pre>
+
+1. Copy the Syslog Forwarding manifest file to your Ops Manager instance.
+<pre class="terminal">
+$ scp -i PATH/TO/PRIVATE/KEY syslog-forwarding-addon.yml ubuntu@YOUR-OPS-MANAGER-VM-IP:
+</pre>
+
+1. SSH into Ops Manager.
+<pre class="terminal">
+$ ssh -i PATH-TO-PRIVATE-KEY ubuntu@YOUR-OPS-MANAGER-VM-IP
+</pre>
+
+1. Navigate to the software binary location in your working directory.
+<pre class="terminal">
+$ cd PATH-TO-BINARY
+</pre>
+
+1. Target your BOSH director instance with BOSH.
+<pre class="terminal">
+$ bosh target YOUR-OPS-MANAGER-DIRECTOR-IP 
+Target set to 'Ops Manager'
+Your username: director
+Enter password: ******************
+Logged in as 'director'
+</pre>
+
+1. Upload your release.
+<pre class="terminal">
+$ bosh upload release PATH-TO-BINARY/BINARY-NAME.tar
+</pre>
+
+1. Optionally, from the command line, confirm that the upload of the Syslog Forwarding software binary completed. You should see the Syslog Forwarding binary file.
+<pre class="terminal">
+$ bosh releases
+</pre>
+
+1. Update your runtime configuration to include the Syslog Forwarding Add-on.
+<pre class="terminal">
+$ bosh update runtime-config PATH/syslog-forwarding-addon.yml
+</pre>
+
+1. Verify your runtime configuration changes match what you specified in the Syslog Forwarding manifest file.
+<pre class="terminal">
+  $ bosh runtime-config
+    Acting as user 'admin' on 'micro'
+    releases:
+     <span>-</span> {name: syslog, version: 3}
+    addons:
+     name: logs
+      jobs:
+      <span>-</span> name: syslog_forwarder
+        release: syslog
+    ...
+</pre>
+
+1. Navigate to your **Installation Dashboard** in Ops Manager.
+1. Click **Apply Changes**.
+1. To verify that Syslog Forwarding works, log into your log management service and confirm that you can view log data from virtual machines in your PCF deployment.
+
+
